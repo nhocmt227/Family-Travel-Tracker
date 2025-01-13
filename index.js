@@ -17,6 +17,83 @@ db.connect();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public")); 
 
+app.get("/", async (req, res) => {
+  try {
+    const userId = await getFirstUser();
+    await handleGet(res, userId);
+  } catch (error) {
+    console.log("Error:", error);
+    res.status(500).json("Internal server error");
+  }
+});
+
+app.post("/add", async (req, res) => { // add a country to the current user
+  const country = req.body["country"];
+  const userId = req.body["userId"];
+  console.log(country);
+  console.log(userId);
+  try {
+    const result = await db.query(
+      "SELECT country_code FROM countries WHERE LOWER(country_name) LIKE $1",
+      [country.toLowerCase()]
+    );
+    if (result.rows.length === 0) {
+      handleError(res, userId, "The country does not exist, try again");
+      return;
+    } 
+    const countryCode = result.rows[0].country_code;
+    console.log(countryCode);
+    try {
+      await db.query(
+        "INSERT INTO visited_countries (country_code, user_id) VALUES ($1, $2)",
+        [countryCode, userId]
+      );
+      handleGet(res, userId);
+    } catch (err) {
+      console.log(err);
+      if (err.code == 23505) {
+        handleError(res, userId, "The country has already been added, try again");
+        return;
+      } else {
+        handleError(res, userId, "Internal server error");
+      }
+    }
+  } catch (err) {
+    console.log(err);
+    handleError(res, userId, "Internal server error");
+  }
+});
+
+app.post("/user", async (req, res) => { // change between users
+  try {
+    console.log(req.body);
+    if (req.body.add) {
+      res.render("new.ejs");
+    } else {
+      const userId = req.body.user;
+      await handleGet(res, userId);
+    }
+  } catch (error) {
+    console.log("Error:", error);
+    res.status(500).json("Internal server error");
+  } 
+});
+
+app.post("/new", async (req, res) => { // create new users
+  //Hint: The RETURNING keyword can return the data that was inserted.
+  //https://www.postgresql.org/docs/current/dml-returning.html
+  try {
+    console.log(req.body);
+    const name = req.body.name;
+    const color = req.body.color;
+    const response = await db.query("INSERT INTO users (name, color) VALUES ($1, $2)", [name, color]);
+    res.redirect("/");
+  } catch (error) {
+    console.log("Error:", error);
+    res.status(500).json("Internal server error");
+  }
+});
+
 async function checkVisisted(userId) {
   const result = await db.query("SELECT country_code FROM visited_countries WHERE user_id = $1", [userId]);
   let countries = [];
@@ -74,73 +151,8 @@ async function handleError(res, userId, error) {
   });
 }
 
-app.get("/", async (req, res) => {
-  try {
-    const userId = await getFirstUser();
-    await handleGet(res, userId);
-  } catch (error) {
-    console.log("Error:", error);
-    res.status(500).json("Internal server error");
-  }
-});
-
-app.post("/add", async (req, res) => { // add a country to the current user
-  const country = req.body["country"];
-  const userId = req.body["userId"];
-  console.log(country);
-  console.log(userId);
-  try {
-    const result = await db.query(
-      "SELECT country_code FROM countries WHERE LOWER(country_name) LIKE $1",
-      [country.toLowerCase()]
-    );
-    const countryCode = result.rows[0].country_code;
-    console.log(countryCode);
-    try {
-      await db.query(
-        "INSERT INTO visited_countries (country_code, user_id) VALUES ($1, $2)",
-        [countryCode, userId]
-      );
-      handleGet(res, userId);
-    } catch (err) {
-      console.log(err);
-    }
-  } catch (err) {
-    console.log(err);
-    res.status(500).json("Internal server error");
-  }
-});
-
-app.post("/user", async (req, res) => { // change between users
-  try {
-    console.log(req.body);
-    if (req.body.add) {
-      res.render("new.ejs");
-    } else {
-      const userId = req.body.user;
-      await handleGet(res, userId);
-    }
-  } catch (error) {
-    console.log("Error:", error);
-    res.status(500).json("Internal server error");
-  } 
-});
-
-app.post("/new", async (req, res) => { // create new users
-  //Hint: The RETURNING keyword can return the data that was inserted.
-  //https://www.postgresql.org/docs/current/dml-returning.html
-  try {
-    console.log(req.body);
-    const name = req.body.name;
-    const color = req.body.color;
-    const response = await db.query("INSERT INTO users (name, color) VALUES ($1, $2)", [name, color]);
-    res.redirect("/");
-  } catch (error) {
-    console.log("Error:", error);
-    res.status(500).json("Internal server error");
-  }
-});
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });
+
