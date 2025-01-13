@@ -17,13 +17,6 @@ db.connect();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public")); 
 
-let currentUserId = 1;
-
-let users = [
-  { id: 1, name: "Angela", color: "teal" },
-  { id: 2, name: "Jack", color: "powderblue" },
-];
-
 async function checkVisisted(userId) {
   const result = await db.query("SELECT country_code FROM visited_countries WHERE user_id = $1", [userId]);
   let countries = [];
@@ -67,6 +60,20 @@ async function handleGet(res, userId) {
   });
 }
 
+async function handleError(res, userId, error) {
+  const users = await getAllUsers();
+  const countries = await checkVisisted(userId);
+  const color = await getColorFromUser(userId);
+  res.render("index.ejs", {
+    countries: countries,
+    total: countries.length,
+    users: users,
+    color: color,
+    userId: userId,
+    error: error
+  });
+}
+
 app.get("/", async (req, res) => {
   try {
     const userId = await getFirstUser();
@@ -77,7 +84,7 @@ app.get("/", async (req, res) => {
   }
 });
 
-app.post("/add", async (req, res) => {
+app.post("/add", async (req, res) => { // add a country to the current user
   const country = req.body["country"];
   const userId = req.body["userId"];
   console.log(country);
@@ -104,7 +111,7 @@ app.post("/add", async (req, res) => {
   }
 });
 
-app.post("/user", async (req, res) => {
+app.post("/user", async (req, res) => { // change between users
   try {
     console.log(req.body);
     if (req.body.add) {
@@ -119,7 +126,7 @@ app.post("/user", async (req, res) => {
   } 
 });
 
-app.post("/new", async (req, res) => {
+app.post("/new", async (req, res) => { // create new users
   //Hint: The RETURNING keyword can return the data that was inserted.
   //https://www.postgresql.org/docs/current/dml-returning.html
   try {
