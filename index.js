@@ -94,7 +94,7 @@ app.post("/add", async (req, res) => {
         "INSERT INTO visited_countries (country_code, user_id) VALUES ($1, $2)",
         [countryCode, userId]
       );
-      res.redirect("/");
+      handleGet(res, userId);
     } catch (err) {
       console.log(err);
     }
