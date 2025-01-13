@@ -90,7 +90,11 @@ app.post("/new", async (req, res) => { // create new users
     res.redirect("/");
   } catch (error) {
     console.log("Error:", error);
-    res.status(500).json("Internal server error");
+    if (error.code == 22001) {
+      res.status(500).json("The maximum username length is 15 characters");
+    } else {
+      res.status(500).json("Internal server error");
+    }
   }
 });
 
